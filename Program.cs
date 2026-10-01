@@ -13,7 +13,7 @@ namespace LostArkCalculator
     static class Program
     {
         private const string ConfigUrl = "여기에_Gist_Raw_주소를_붙여넣으세요";
-        private const string CurrentVersion = "1.0.0";
+        private const string CurrentVersion = "1.0.1";
 
         // ❌ 기존 비밀 파일(secrets.txt) 경로는 지웠습니다.
 
