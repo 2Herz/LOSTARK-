@@ -67,6 +67,9 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="4. Views\ApiKeyForm.resx">
+      <DependentUpon>ApiKeyForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="4. Views\Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>

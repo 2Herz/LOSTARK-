@@ -80,5 +80,17 @@ namespace LostArkCalculator.Views
             this.DialogResult = DialogResult.OK; // 정상 통과 신호
             this.Close();
         }
+
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            // 
+            // ApiKeyForm
+            // 
+            this.ClientSize = new System.Drawing.Size(508, 176);
+            this.Name = "ApiKeyForm";
+            this.ResumeLayout(false);
+
+        }
     }
 }
