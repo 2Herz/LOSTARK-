@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Net.Http;
 using System.Windows.Forms;
 using Newtonsoft.Json;
@@ -11,11 +12,14 @@ namespace LostArkCalculator
 {
     static class Program
     {
-        // 🌟 아까 복사한 GitHub Gist의 'Raw' 주소를 여기에 넣습니다.
-        private const string ConfigUrl = "YOUR_RAW_URL_HERE";
+        // 🌟 1. 원격 제어(GitHub Gist) Raw URL 입력 (아까 만드신 Gist 주소)
+        private const string ConfigUrl = "여기에_Gist_Raw_주소를_붙여넣으세요";
 
-        // 내 프로그램의 현재 버전 (배포할 때마다 숫자를 올립니다)
+        // 🌟 2. 현재 배포 버전
         private const string CurrentVersion = "1.0.0";
+
+        // 🌟 3. 로컬 비밀 키 파일 경로 (깃허브에 절대 올라가지 않는 파일)
+        private const string SecretFilePath = "secrets.txt";
 
         [STAThread]
         static void Main()
@@ -23,28 +27,39 @@ namespace LostArkCalculator
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // 🌟 1. 폼(UI)을 띄우기 전에 서버 상태부터 체크 (검문소)
-            if (!CheckServerStatus())
+            // [검문소 1단계] 서버 상태 체크 (점검 중이면 강제 종료)
+            if (!CheckServerStatus()) return;
+
+            // [검문소 2단계] 로컬 비밀 키(secrets.txt) 읽기
+            string apiKey = LoadLocalSecretKey();
+            if (string.IsNullOrEmpty(apiKey))
             {
-                return; // 점검 중이거나 치명적 오류 시 여기서 프로그램 즉시 종료
+                MessageBox.Show("비밀 키 파일(secrets.txt)을 찾을 수 없습니다.\n프로젝트 폴더(exe 파일이 있는 곳)에 secrets.txt를 만들고 API 키를 넣어주세요.",
+                                "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
 
-            // 🌟 2. 검문소를 통과했다면 정상적으로 의존성 조립 및 부팅
+            // [최종 실행] 완벽하게 조립된 의존성을 폼에 주입하며 프로그램 실행! (DI 적용)
             IDataRepository db = new JsonDataRepository();
-            IMarketApi api = new MarketApi(AppConstants.ApiKey);
+            IMarketApi api = new MarketApi(apiKey); // AppConstants.ApiKey 대신 로컬 파일에서 읽은 키를 안전하게 주입
             IAssetCalculator calc = new AssetCalculationService(db);
 
             Application.Run(new Form1(db, api, calc));
         }
 
-        // 🌟 서버 상태를 확인하는 신호등 로직
+        // =====================================
+        // [유틸리티] 서버 상태 확인 로직
+        // =====================================
         private static bool CheckServerStatus()
         {
+            // 아직 Gist 주소를 넣지 않았을 때를 대비한 방어 코드
+            if (ConfigUrl == "여기에_Gist_Raw_주소를_붙여넣으세요" || string.IsNullOrEmpty(ConfigUrl)) return true;
+
             try
             {
                 using (HttpClient client = new HttpClient())
                 {
-                    // 깃허브에서 JSON 텍스트를 읽어옴 (.Result를 써서 동기적으로 기다림)
+                    // 깃허브에서 JSON 텍스트를 읽어옴
                     string json = client.GetStringAsync(ConfigUrl).Result;
                     var config = JsonConvert.DeserializeObject<ServerConfig>(json);
 
@@ -52,14 +67,13 @@ namespace LostArkCalculator
                     if (config.IsMaintenance)
                     {
                         MessageBox.Show(config.MaintenanceMessage, "서버 점검 안내", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return false; // 실행 차단
+                        return false; // 프로그램 실행 차단
                     }
 
-                    // 🔄 버전이 다르다면? (선택 사항: 강제 종료하거나 안내만 하거나)
+                    // 🔄 버전이 다르다면? 안내창 띄우기
                     if (config.LatestVersion != CurrentVersion)
                     {
                         MessageBox.Show($"새로운 버전({config.LatestVersion})이 출시되었습니다!\n최신 버전으로 업데이트를 권장합니다.", "업데이트 안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        // return false; // 버전을 다르면 강제 종료시키고 싶다면 주석 해제
                     }
 
                     return true; // 무사 통과
@@ -73,6 +87,19 @@ namespace LostArkCalculator
 
                 return result == DialogResult.Yes;
             }
+        }
+
+        // =====================================
+        // [유틸리티] 로컬 비밀 키 읽기 로직
+        // =====================================
+        private static string LoadLocalSecretKey()
+        {
+            // 컴파일된 빌드 폴더(bin/Debug 등)에 secrets.txt가 있어야 읽어옵니다.
+            if (File.Exists(SecretFilePath))
+            {
+                return File.ReadAllText(SecretFilePath).Trim();
+            }
+            return null;
         }
     }
 }
