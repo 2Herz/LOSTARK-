@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# 내 로컬 세이브 데이터 및 비밀 키 파일 무시
+LostArkRosterData.json
+secrets.txt
