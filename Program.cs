@@ -61,7 +61,9 @@ namespace LostArkCalculator
             {
                 using (HttpClient client = new HttpClient())
                 {
-                    string json = client.GetStringAsync(ConfigUrl).Result;
+                    string requestUrl = ConfigUrl + "?t=" + DateTime.Now.Ticks;
+
+                    string json = client.GetStringAsync(requestUrl).Result;
                     var config = JsonConvert.DeserializeObject<ServerConfig>(json);
                     if (config.IsMaintenance)
                     {
