@@ -56,7 +56,7 @@ namespace LostArkCalculator
         // =====================================
         private static bool CheckServerStatus()
         {
-            if (ConfigUrl == "여기에_Gist_Raw_주소를_붙여넣으세요" || string.IsNullOrEmpty(ConfigUrl)) return true;
+            if (ConfigUrl == "https://gist.githubusercontent.com/2Herz/d075350e67a061d494e47703c717f3d7/raw/dbab0e066fc16bd4b9da747c4afc6e6023abd8b4/AppConfig.json" || string.IsNullOrEmpty(ConfigUrl)) return true;
             try
             {
                 using (HttpClient client = new HttpClient())
