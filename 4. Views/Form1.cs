@@ -6,13 +6,16 @@ using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
 using LostArkCalculator.Core;
 using LostArkCalculator.Models;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Button;
 
 namespace LostArkCalculator.Views
 {
+    /// <summary>
+    /// 메인 화면을 담당하는 폼 클래스입니다.
+    /// #region을 통해 초기화, 이벤트, UI 그리기로 구역을 깔끔하게 나누어 관리합니다.
+    /// </summary>
     public partial class Form1 : Form
     {
+        #region 📌 1. 전역 변수 및 프로그램 초기화
         private readonly IDataRepository _db;
         private readonly IMarketApi _api;
         private readonly IAssetCalculator _calc;
@@ -29,9 +32,8 @@ namespace LostArkCalculator.Views
             _api = api;
             _calc = calc;
 
-            // 계산 완료 이벤트를 구독하여 화면 갱신
+            // 계산 완료 이벤트를 구독하여 화면 갱신 (Observer 패턴)
             _calc.OnAssetCalculated += RefreshUI;
-
             this.Load += Form1_Load;
         }
 
@@ -48,20 +50,25 @@ namespace LostArkCalculator.Views
             comboBox1.SelectedIndexChanged += ComboBox1_SelectedIndexChanged;
             button2.Click += Button2_Click;
             dataGridView1.CellValueChanged += DataGridView1_CellValueChanged;
+            this.Resize += Form1_Resize;
 
-            autoTimer = new Timer { Interval = 300000 };
+            autoTimer = new Timer { Interval = 300000 }; // 5분
             autoTimer.Tick += (s, ev) => { if (button1.Enabled) button1.PerformClick(); };
 
             if (this.Controls.ContainsKey("checkBox1") || checkBox1 != null)
-                checkBox1.CheckedChanged += (s, ev) => { if (checkBox1.Checked) { autoTimer.Start(); button1.PerformClick(); } else autoTimer.Stop(); };
+            {
+                checkBox1.CheckedChanged += (s, ev) =>
+                {
+                    if (checkBox1.Checked) { autoTimer.Start(); button1.PerformClick(); }
+                    else autoTimer.Stop();
+                };
+            }
 
-            this.Resize += Form1_Resize;
             RefreshUI();
         }
+        #endregion
 
-        // =====================================
-        // UI 초기화 및 유틸리티 
-        // =====================================
+        #region 🎨 2. UI 화면 그리기 (디자인 및 시각화 전담)
         private void InitializeGrid()
         {
             if (dataGridView1.Columns.Count > 0) return;
@@ -78,7 +85,11 @@ namespace LostArkCalculator.Views
 
             for (int i = 0; i < dataGridView1.Rows.Count; i++)
             {
-                if (i != 4 && i != 5) { dataGridView1.Rows[i].ReadOnly = true; dataGridView1.Rows[i].DefaultCellStyle.BackColor = Color.WhiteSmoke; }
+                if (i != 4 && i != 5)
+                {
+                    dataGridView1.Rows[i].ReadOnly = true;
+                    dataGridView1.Rows[i].DefaultCellStyle.BackColor = Color.WhiteSmoke;
+                }
                 if (i >= 2) dataGridView1.Rows[i].DefaultCellStyle.Format = "N0";
             }
             dataGridView1.Columns[8].DefaultCellStyle.BackColor = Color.LightCyan;
@@ -88,7 +99,14 @@ namespace LostArkCalculator.Views
         private void InitializeChart()
         {
             chart1.Series.Clear();
-            chart1.Series.Add(new Series("원정대 총 자산") { ChartType = SeriesChartType.Line, BorderWidth = 3, Color = Color.CornflowerBlue, MarkerStyle = MarkerStyle.Circle, MarkerSize = 8 });
+            chart1.Series.Add(new Series("원정대 총 자산")
+            {
+                ChartType = SeriesChartType.Line,
+                BorderWidth = 3,
+                Color = Color.CornflowerBlue,
+                MarkerStyle = MarkerStyle.Circle,
+                MarkerSize = 8
+            });
         }
 
         private void InitializeTrayIcon()
@@ -99,6 +117,66 @@ namespace LostArkCalculator.Views
 
             trayIcon = new NotifyIcon { Text = "로스트아크 자산 계산기", Icon = SystemIcons.Application, ContextMenuStrip = trayMenu, Visible = true };
             trayIcon.DoubleClick += (s, ev) => { this.Show(); this.WindowState = FormWindowState.Normal; };
+        }
+
+        private void RefreshUI()
+        {
+            if (this.InvokeRequired) { this.Invoke(new Action(RefreshUI)); return; }
+
+            for (int col = 1; col <= 7; col++)
+            {
+                string key = AppConstants.MatKeys[col];
+                if (_calc.TopPrices.ContainsKey(key)) FormatPriceCell(dataGridView1.Rows[0].Cells[col], _calc.TopPrices[key]);
+                if (_calc.BotPrices.ContainsKey(key)) FormatPriceCell(dataGridView1.Rows[1].Cells[col], _calc.BotPrices[key]);
+            }
+
+            if (comboBox1.SelectedItem != null)
+            {
+                string charName = comboBox1.SelectedItem.ToString().Split(' ')[0];
+                var charData = _db.Data.Characters[charName];
+                double topTotal = 0, botTotal = 0;
+
+                for (int col = 1; col <= 7; col++)
+                {
+                    string key = AppConstants.MatKeys[col];
+                    dataGridView1.Rows[2].Cells[col].Value = charData.Materials[key].CalculatedTopValue;
+                    dataGridView1.Rows[3].Cells[col].Value = charData.Materials[key].CalculatedBotValue;
+                    topTotal += charData.Materials[key].CalculatedTopValue;
+                    botTotal += charData.Materials[key].CalculatedBotValue;
+                }
+                dataGridView1.Rows[2].Cells[8].Value = topTotal;
+                dataGridView1.Rows[3].Cells[8].Value = botTotal;
+                dataGridView1.Rows[6].Cells[8].Value = topTotal + botTotal;
+            }
+
+            chart1.Series[0].Points.Clear();
+            double currentTotal = 0;
+            foreach (var kvp in _db.Data.History)
+            {
+                chart1.Series[0].Points.AddXY(kvp.Key, kvp.Value);
+                currentTotal = kvp.Value;
+            }
+
+            if (chart1.Titles.Count == 0) chart1.Titles.Add(new Title { Font = new Font("맑은 고딕", 12, FontStyle.Bold) });
+            chart1.Titles[0].Text = $"내 원정대 총 자산: {currentTotal:N0} 골드";
+            if (trayIcon != null) trayIcon.Text = $"원정대 자산: {currentTotal:N0} 골드";
+        }
+
+        private void FormatPriceCell(DataGridViewCell cell, PriceData p)
+        {
+            if (p.Diff > 0) { cell.Style.ForeColor = Color.Red; cell.Value = $"{p.Current:N2} (▲{p.Diff:N2})"; }
+            else if (p.Diff < 0) { cell.Style.ForeColor = Color.Blue; cell.Value = $"{p.Current:N2} (▼{Math.Abs(p.Diff):N2})"; }
+            else { cell.Style.ForeColor = Color.Black; cell.Value = $"{p.Current:N2}"; }
+        }
+        #endregion
+
+        #region 📌 3. 사용자 입력 및 이벤트 (마우스 클릭, 텍스트 입력 처리)
+        private double GetSafeDouble(object cellValue)
+        {
+            if (cellValue == null || cellValue == DBNull.Value) return 0;
+            string strVal = cellValue.ToString().Replace(",", "").Replace(" ", "").Trim();
+            if (double.TryParse(strVal, out double result)) return result;
+            return 0;
         }
 
         private void Form1_Resize(object sender, EventArgs e)
@@ -112,17 +190,6 @@ namespace LostArkCalculator.Views
             }
         }
 
-        private double GetSafeDouble(object cellValue)
-        {
-            if (cellValue == null || cellValue == DBNull.Value) return 0;
-            string strVal = cellValue.ToString().Replace(",", "").Replace(" ", "").Trim();
-            if (double.TryParse(strVal, out double result)) return result;
-            return 0;
-        }
-
-        // =====================================
-        // 사용자 이벤트 및 매니저 호출
-        // =====================================
         private void ComboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (comboBox1.SelectedItem == null) return;
@@ -136,12 +203,12 @@ namespace LostArkCalculator.Views
                 dataGridView1.Rows[5].Cells[col].Value = charData.Materials[AppConstants.MatKeys[col]].BottomQty;
             }
             isLoadingChar = false;
-            _calc.CalculateCharacterAssets(charName); // 매니저에게 계산 지시
+            _calc.CalculateCharacterAssets(charName);
         }
 
         private async void button1_Click(object sender, EventArgs e)
         {
-            dataGridView1.EndEdit(); // 버그 픽스: 편집 강제 완료
+            dataGridView1.EndEdit();
             button1.Enabled = false; button1.Text = "시세 동기화 중...";
             try
             {
@@ -206,73 +273,6 @@ namespace LostArkCalculator.Views
                 _calc.CalculateCharacterAssets(charName);
             }
         }
-
-        // =====================================
-        // 옵저버 패턴 응답 (UI 그리기 전담)
-        // =====================================
-        private void RefreshUI()
-        {
-            if (this.InvokeRequired) { this.Invoke(new Action(RefreshUI)); return; }
-
-            // 1. 단가 및 등락폭 그리기
-            for (int col = 1; col <= 7; col++)
-            {
-                string key = AppConstants.MatKeys[col];
-                if (_calc.TopPrices.ContainsKey(key)) FormatPriceCell(dataGridView1.Rows[0].Cells[col], _calc.TopPrices[key]);
-                if (_calc.BotPrices.ContainsKey(key)) FormatPriceCell(dataGridView1.Rows[1].Cells[col], _calc.BotPrices[key]);
-            }
-
-            // 2. 캐릭터 자산 합산액 그리기
-            if (comboBox1.SelectedItem != null)
-            {
-                string charName = comboBox1.SelectedItem.ToString().Split(' ')[0];
-                var charData = _db.Data.Characters[charName];
-                double topTotal = 0, botTotal = 0;
-
-                for (int col = 1; col <= 7; col++)
-                {
-                    string key = AppConstants.MatKeys[col];
-                    dataGridView1.Rows[2].Cells[col].Value = charData.Materials[key].CalculatedTopValue;
-                    dataGridView1.Rows[3].Cells[col].Value = charData.Materials[key].CalculatedBotValue;
-                    topTotal += charData.Materials[key].CalculatedTopValue;
-                    botTotal += charData.Materials[key].CalculatedBotValue;
-                }
-                dataGridView1.Rows[2].Cells[8].Value = topTotal;
-                dataGridView1.Rows[3].Cells[8].Value = botTotal;
-                dataGridView1.Rows[6].Cells[8].Value = topTotal + botTotal;
-            }
-
-            // 3. 차트 및 원정대 총 자산 그리기
-            chart1.Series[0].Points.Clear();
-            double currentTotal = 0;
-            foreach (var kvp in _db.Data.History)
-            {
-                chart1.Series[0].Points.AddXY(kvp.Key, kvp.Value);
-                currentTotal = kvp.Value;
-            }
-
-            if (chart1.Titles.Count == 0) chart1.Titles.Add(new Title { Font = new Font("맑은 고딕", 12, FontStyle.Bold) });
-            chart1.Titles[0].Text = $"내 원정대 총 자산: {currentTotal:N0} 골드";
-            if (trayIcon != null) trayIcon.Text = $"원정대 자산: {currentTotal:N0} 골드";
-        }
-
-        private void FormatPriceCell(DataGridViewCell cell, PriceData p)
-        {
-            if (p.Diff > 0)
-            {
-                cell.Style.ForeColor = Color.Red;
-                cell.Value = $"{p.Current:N2} (▲{p.Diff:N2})";
-            }
-            else if (p.Diff < 0)
-            {
-                cell.Style.ForeColor = Color.Blue;
-                cell.Value = $"{p.Current:N2} (▼{Math.Abs(p.Diff):N2})";
-            }
-            else
-            {
-                cell.Style.ForeColor = Color.Black;
-                cell.Value = $"{p.Current:N2}";
-            }
-        }
+        #endregion
     }
 }

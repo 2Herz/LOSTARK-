@@ -14,7 +14,7 @@ namespace LostArkCalculator
     {
         // 🌟 수정 1: 긴 암호(해시)를 완전히 지운 '진짜 최신 추적 주소'
         private const string ConfigUrl = "https://gist.githubusercontent.com/2Herz/d075350e67a061d494e47703c717f3d7/raw/AppConfig.json";
-        private const string CurrentVersion = "1.0.1";
+        private const string CurrentVersion = "1.0.2";
 
         [STAThread]
         static void Main()
