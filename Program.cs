@@ -12,7 +12,8 @@ namespace LostArkCalculator
 {
     static class Program
     {
-        private const string ConfigUrl = "https://gist.githubusercontent.com/2Herz/d075350e67a061d494e47703c717f3d7/raw/dbab0e066fc16bd4b9da747c4afc6e6023abd8b4/AppConfig.json";
+        // 🌟 수정 1: 긴 암호(해시)를 완전히 지운 '진짜 최신 추적 주소'
+        private const string ConfigUrl = "https://gist.githubusercontent.com/2Herz/d075350e67a061d494e47703c717f3d7/raw/AppConfig.json";
         private const string CurrentVersion = "1.0.1";
 
         [STAThread]
@@ -23,27 +24,20 @@ namespace LostArkCalculator
 
             if (!CheckServerStatus()) return;
 
-            // 🌟 1. 윈도우 설정 공간에서 API 키를 꺼내옴
             string apiKey = LOSTARK_귀속재료_값어치_계산기.Properties.Settings.Default.UserApiKey;
 
-            // 🌟 2. 키가 비어있다면? (처음 실행하는 사용자)
             if (string.IsNullOrEmpty(apiKey))
             {
-                // API 키 입력 전용 창을 띄움 (.ShowDialog()로 창이 닫힐 때까지 대기)
                 using (var keyForm = new ApiKeyForm())
                 {
                     if (keyForm.ShowDialog() != DialogResult.OK)
                     {
-                        // 사용자가 창의 X 버튼을 눌러서 강제로 닫아버리면 프로그램 종료
                         return;
                     }
                 }
-
-                // 정상적으로 입력하고 저장 버튼을 눌렀다면 다시 키를 꺼내옴
                 apiKey = LOSTARK_귀속재료_값어치_계산기.Properties.Settings.Default.UserApiKey;
             }
 
-            // 🌟 3. 완벽하게 주입 후 본 게임(Form1) 시작!
             IDataRepository db = new JsonDataRepository();
             IMarketApi api = new MarketApi(apiKey);
             IAssetCalculator calc = new AssetCalculationService(db);
@@ -51,12 +45,11 @@ namespace LostArkCalculator
             Application.Run(new Form1(db, api, calc));
         }
 
-        // =====================================
-        // [유틸리티] 서버 상태 확인 로직 (기존과 동일)
-        // =====================================
         private static bool CheckServerStatus()
         {
-            if (ConfigUrl == "https://gist.githubusercontent.com/2Herz/d075350e67a061d494e47703c717f3d7/raw/dbab0e066fc16bd4b9da747c4afc6e6023abd8b4/AppConfig.json" || string.IsNullOrEmpty(ConfigUrl)) return true;
+            // 🌟 수정 2: 무사통과 함정 제거. 주소가 비어있을 때만 통과하도록 수정.
+            if (string.IsNullOrEmpty(ConfigUrl)) return true;
+
             try
             {
                 using (HttpClient client = new HttpClient())
@@ -65,6 +58,7 @@ namespace LostArkCalculator
 
                     string json = client.GetStringAsync(requestUrl).Result;
                     var config = JsonConvert.DeserializeObject<ServerConfig>(json);
+
                     if (config.IsMaintenance)
                     {
                         MessageBox.Show(config.MaintenanceMessage, "서버 점검 안내", MessageBoxButtons.OK, MessageBoxIcon.Warning);
